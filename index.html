@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flappy Birdie ni ck</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: skyblue; }
+    canvas {
+  display: block;
+  width: 100vw;   /* full width of the viewport */
+  height: 100vh;  /* full height of the viewport */
+}
+
+    /* Game over buttons overlay */
+    #gameOverUI {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 10;
+    }
+
+    #gameOverUI button {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="360" height="480"></canvas>
+
+  <div id="gameOverUI">
+    <button id="retryBtn">Retry</button>
+    <button id="quitBtn">Quit</button>
+  </div>
+
+  <script>
+      
+    // Make canvas full screen (replace CSS scaling)
+const canvas = document.getElementById("game");
+const c = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Optional: handle resizing dynamically
+window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+    // Game variables
+    let bird = { x: 50, y: 240, width: 30, height: 30, velocity: 0 };
+    let gravity = 0.6;
+    let lift = -7;
+    let pipes = [];
+    let frame = 0;
+    let score = 0;
+    let gameOver = false;
+
+    // Bird image (single)
+    let birdImg = new Image();
+    birdImg.src = "flap.jpeg"; // replace with your bird image
+
+    // Pipe and background images
+    let pipeImg = new Image(); pipeImg.src = "pipe2.png";        // your pipe image
+    let bgImg = new Image(); bgImg.src = "flapp.jpg";      // your background
+    
+    let pointSound = new Audio("ping.mp3"); // replace with your own sound file
+
+    // Background scrolling
+    let bgX = 0;
+    let bgSpeed = 1.5;
+
+    // Buttons
+    const gameOverUI = document.getElementById("gameOverUI");
+    const retryBtn = document.getElementById("retryBtn");
+    const quitBtn = document.getElementById("quitBtn");
+
+    retryBtn.addEventListener("click", () => { location.reload(); });
+
+    quitBtn.addEventListener("click", () => {
+      gameOver = true;
+      gameOverUI.style.display = "none";
+      c.clearRect(0,0,canvas.width,canvas.height);
+      c.fillStyle = "black";
+      c.font = "30px Arial";
+      c.textAlign = "center";
+      c.fillText("Youtube ka muna", canvas.width/2, canvas.height/2);
+      setTimeout(() => { window.location.href = "https://youtube.com"; }, 500);
+    });
+
+    function addPipe() {
+      let gap = 120;
+      let minPipeHeight = 50;
+      let maxPipeHeight = canvas.height - gap - minPipeHeight;
+      let topHeight = Math.floor(Math.random() * (maxPipeHeight - minPipeHeight + 1)) + minPipeHeight;
+      let bottomHeight = canvas.height - topHeight - gap;
+    pipes.push({ x: canvas.width, top: topHeight, bottom: bottomHeight, width: 50, passed: false });
+    }
+
+    // Input
+    window.addEventListener("keydown", e => {
+      if(e.key === " " || e.key === "Spacebar") bird.velocity = lift;
+    });
+    window.addEventListener("touchstart", () => { bird.velocity = lift; });
+
+    // Wait for images to load before starting
+    let imagesToLoad = 3;
+    let loadedCount = 0;
+    [birdImg, pipeImg, bgImg].forEach(img => {
+      img.onload = () => { loadedCount++; if(loadedCount === imagesToLoad) update(); };
+      img.onerror = () => { console.error("Failed to load image: " + img.src); };
+    });
+
+    function update() {
+      if(gameOver) return;
+
+      frame++;
+      c.clearRect(0,0,canvas.width,canvas.height);
+
+      // Background scrolling
+      if(bgImg.complete && bgImg.naturalWidth !== 0){
+        // Background scrolling
+// Moving background
+// Moving background (no black line)
+bgX -= bgSpeed;
+if(bgX <= -canvas.width) bgX += canvas.width;
+
+// Draw two images to cover the canvas fully
+c.drawImage(bgImg, bgX, 0, canvas.width + 1, canvas.height);
+c.drawImage(bgImg, bgX + canvas.width, 0, canvas.width + 1, canvas.height);
+}
+      // Bird physics & rotation
+      bird.velocity += gravity;
+      bird.y += bird.velocity;
+
+      // Tilt up when going up, down when falling
+      let angle;
+      if(bird.velocity < 0){
+        angle = -0.3; // tilt up
+      } else {
+        angle = Math.min(bird.velocity / 10, 0.5); // tilt down
+      }
+
+      // Draw bird with tilt
+      c.save();
+      c.translate(bird.x + bird.width/2, bird.y + bird.height/2);
+      c.rotate(angle);
+      c.drawImage(birdImg, -bird.width/2, -bird.height/2, bird.width, bird.height);
+      c.restore();
+
+      // Pipes
+      if(frame % 130 === 0) addPipe();
+      for(let i = 0; i < pipes.length; i++){
+    let p = pipes[i];
+    if(!p) continue; // safety check
+
+    p.x -= 2;
+
+    // Draw pipes
+    c.drawImage(pipeImg, p.x, canvas.height - p.bottom, p.width, p.bottom); // bottom
+    c.drawImage(pipeImg, p.x, 0, p.width, p.top); // top
+
+    // Collision detection
+    if(!gameOver && bird.x + bird.width > p.x && bird.x < p.x + p.width &&
+       (bird.y < p.top || bird.y + bird.height > canvas.height - p.bottom)) {
+        gameOver = true;
+        gameOverUI.style.display = "block"; // show buttons
+    }
+
+    // Score — safe check
+    if(typeof p.passed === "undefined") p.passed = false; // safety check
+if(!p.passed && bird.x > p.x + p.width){
+    score++;
+    p.passed = true;
+    pointSound.currentTime = 0; // reset sound
+    pointSound.play();           // play sound
+    }
+}
+
+      // Ground / ceiling collision
+      if(!gameOver && (bird.y + bird.height > canvas.height || bird.y < 0)) {
+        gameOver = true;
+        gameOverUI.style.display = "block";
+      }
+
+      // Score
+      c.fillStyle = "black";
+      c.font = "20px Arial";
+      c.fillText("Score: " + score, 10, 30);
+
+      requestAnimationFrame(update);
+    }
+  </script>
+</body>
+</html>
