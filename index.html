@@ -43,8 +43,11 @@
 const canvas = document.getElementById("game");
 const c = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// Internal game coordinates
+const GAME_WIDTH = 360;
+const GAME_HEIGHT = 480;
+canvas.width = GAME_WIDTH;
+canvas.height = GAME_HEIGHT;
 
 // Optional: handle resizing dynamically
 window.addEventListener("resize", () => {
